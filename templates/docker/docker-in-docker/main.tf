@@ -24,16 +24,6 @@ provider "docker" {
 data "coder_workspace" "me" {
 }
 
-# data "coder_parameter" "docker_image" {
-#   name         = "docker_image"
-#   display_name = "Docker image"
-#   description  = "The Docker image will be used to build your workspace."
-#   default      = "codercom/enterprise-base:ubuntu"
-#   icon         = "/icon/docker.png"
-#   type         = "string"
-#   mutable      = false
-# }
-
 data "coder_parameter" "dotfiles_uri" {
   name         = "dotfiles_uri"
   display_name = "dotfiles URI"
@@ -47,13 +37,16 @@ data "coder_parameter" "dotfiles_uri" {
   mutable      = true
 }
 
-# dotfiles
 resource "coder_agent" "main" {
   arch                   = data.coder_provisioner.me.arch
   os                     = "linux"
   startup_script_timeout = 180
   startup_script         = <<-EOT
     set -e
+
+    # install OMZSH
+    curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh
+
     if [ -n "$DOTFILES_URI" ]; then
       echo "Installing dotfiles from $DOTFILES_URI"
       coder dotfiles -y "$DOTFILES_URI"
@@ -77,7 +70,6 @@ resource "coder_agent" "main" {
   }
 }
 
-# code-server
 resource "coder_app" "code-server" {
   agent_id      = coder_agent.main.id
   slug          = "code-server"
@@ -94,16 +86,29 @@ resource "coder_app" "code-server" {
   }
 }
 
+resource "docker_image" "main" {
+  name = "img-coder-${data.coder_workspace.me.id}"
+  build {
+    context = "./build"
+    build_args = {
+      USERNAME = local.username
+    }
+  }
+  triggers = {
+    dir_sha1 = sha1(join("", [for f in fileset(path.module, "build/*") : filesha1(f)]))
+  }
+}
+
 resource "docker_network" "private_network" {
-  name = "network-${data.coder_workspace.me.id}"
+  name = "net-${data.coder_workspace.me.id}"
 }
 
 resource "docker_container" "dind" {
   count      = data.coder_workspace.me.start_count
-  image      = "docker:dind"
-  privileged = true
-  name       = "dind-${data.coder_workspace.me.id}"
   entrypoint = ["dockerd", "-H", "tcp://0.0.0.0:2375"]
+  image      = "docker:dind"
+  name       = "dind-${data.coder_workspace.me.id}"
+  privileged = true
 
   networks_advanced {
     name = docker_network.private_network.name
@@ -111,7 +116,7 @@ resource "docker_container" "dind" {
 }
 
 resource "docker_volume" "home_volume" {
-  name = "volume-${data.coder_workspace.me.owner}-${lower(data.coder_workspace.me.name)}-home"
+  name = "vol-${data.coder_workspace.me.id}-home"
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
     ignore_changes = all
@@ -137,26 +142,10 @@ resource "docker_volume" "home_volume" {
   }
 }
 
-resource "docker_image" "main" {
-  name = "coder-${data.coder_workspace.me.id}"
-  build {
-    context = "./build"
-    build_args = {
-      USERNAME = local.username
-    }
-  }
-  triggers = {
-    dir_sha1 = sha1(join("", [for f in fileset(path.module, "build/*") : filesha1(f)]))
-  }
-}
-
 resource "docker_container" "workspace" {
   count   = data.coder_workspace.me.start_count
-  #image   = data.coder_parameter.docker_image.value
   image   = docker_image.main.name
-  # Uses lower() to avoid Docker restriction on container names.
-  name = "workspace-${data.coder_workspace.me.owner}-${lower(data.coder_workspace.me.name)}"
-  # Hostname makes the shell more user friendly: coder@my-workspace:~$
+  name = "work-${data.coder_workspace.me.id}"
   hostname = data.coder_workspace.me.name
 
   command = ["sh", "-c", coder_agent.main.init_script]
@@ -206,8 +195,4 @@ resource "coder_metadata" "workspace_info" {
     key   = "Docker network name"
     value = docker_network.private_network.name
   }
-  # item {
-  #   key   = "image"
-  #   value = data.coder_parameter.docker_image.value
-  # }
 }
