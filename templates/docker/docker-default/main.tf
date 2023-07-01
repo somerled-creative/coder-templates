@@ -90,22 +90,22 @@ resource "coder_agent" "main" {
   # You can remove this block if you'd prefer to configure Git manually or using
   # dotfiles. (see docs/dotfiles.md)
   env = {
-    DOTFILES_URI        = data.coder_parameter.dotfiles_uri.value != "" ? data.coder_parameter.dotfiles_uri.value : null
-    GIT_AUTHOR_NAME     = "${data.coder_workspace.me.owner}"
-    GIT_COMMITTER_NAME  = "${data.coder_workspace.me.owner}"
-    GIT_AUTHOR_EMAIL    = "${data.coder_workspace.me.owner_email}"
-    GIT_COMMITTER_EMAIL = "${data.coder_workspace.me.owner_email}"
+    DOTFILES_URI        = "${data.coder_parameter.dotfiles_uri.value}"
+    GIT_AUTHOR_NAME     = "${data.coder_parameter.git_user_name.value}"
+    GIT_COMMITTER_NAME  = "${data.coder_parameter.git_user_name.value}"
+    GIT_AUTHOR_EMAIL    = "${data.coder_parameter.git_user_email.value}"
+    GIT_COMMITTER_EMAIL = "${data.coder_parameter.git_user_email.value}"
   }
 }
 
 resource "coder_app" "code-server" {
-  agent_id     = coder_agent.main.id
-  display_name = "code-server"
-  icon         = "/icon/code.svg"
-  share        = "owner"
-  slug         = "code-server"
-  subdomain    = false
-  url          = "http://localhost:13337/?folder=/home/${local.username}"
+  agent_id      = coder_agent.main.id
+  display_name  = "code-server"
+  icon          = "/icon/code.svg"
+  share         = "owner"
+  slug          = "code-server"
+  subdomain     = false
+  url           = "http://localhost:13337?folder=/home/${local.username}"
 
   healthcheck {
     interval  = 5
@@ -144,7 +144,7 @@ resource "docker_volume" "home_volume" {
 resource "docker_image" "main" {
   name = "img-coder-${data.coder_workspace.me.id}"
   build {
-    context = "./build"
+    context    = "./build"
     build_args = {
       USERNAME = local.username
     }
@@ -154,22 +154,34 @@ resource "docker_image" "main" {
   }
 }
 
+resource "docker_container" "dind" {
+  count        = data.coder_workspace.me.start_count
+  entrypoint   = ["dockerd", "-H", "tcp://0.0.0.0:2375"]
+  image        = "docker:dind"
+  name         = "dind-${data.coder_workspace.me.id}"
+  network_mode = "host"
+  privileged   = true
+}
+
 resource "docker_container" "workspace" {
-  command  = ["sh", "-c", coder_agent.main.init_script]
-  count    = data.coder_workspace.me.start_count
-  hostname = data.coder_workspace.me.name
-  image    = docker_image.main.name
-  name     = "work-${data.coder_workspace.me.id}"
+  command      = ["sh", "-c", coder_agent.main.init_script]
+  count        = data.coder_workspace.me.start_count
+  hostname     = data.coder_workspace.me.name
+  image        = docker_image.main.name
+  name         = "work-${data.coder_workspace.me.id}"
+  network_mode = "host"
 
   env = [
-    "CODER_AGENT_TOKEN=${coder_agent.main.token}"
+    "CODER_AGENT_TOKEN=${coder_agent.main.token}",
+    "DOCKER_HOST=localhost:2375"
   ]
 
   volumes {
-    container_path = "/home/${local.username}"
-    volume_name    = docker_volume.home_volume.name
+    container_path = "/home/${local.username}/"
     read_only      = false
+    volume_name    = docker_volume.home_volume.name
   }
+
   # Add labels in Docker to keep track of orphan resources.
   labels {
     label = "coder.owner"
@@ -186,5 +198,14 @@ resource "docker_container" "workspace" {
   labels {
     label = "coder.workspace_name"
     value = data.coder_workspace.me.name
+  }
+}
+
+resource "coder_metadata" "workspace_info" {
+  count       = data.coder_workspace.me.start_count
+  resource_id = docker_container.workspace[0].id
+  item {
+    key   = "Docker host name"
+    value = docker_container.dind[0].name
   }
 }

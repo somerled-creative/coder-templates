@@ -37,32 +37,6 @@ data "coder_parameter" "dotfiles_uri" {
   mutable      = true
 }
 
-data "coder_parameter" "git_user_email" {
-  name         = "git_user_email"
-  display_name = "Git User Email"
-  description  = <<-EOF
-  The email address used for as `user.email` git config (optional).
-
-  Defaults to the coder user email address.
-  EOF
-  default      = "${data.coder_workspace.me.owner_email}"
-  type         = "string"
-  mutable      = true
-}
-
-data "coder_parameter" "git_user_name" {
-  name         = "git_user_name"
-  display_name = "Git User Name"
-  description  = <<-EOF
-  The email address used for as `user.name` git config (optional).
-
-  Defaults to the coder user name.
-  EOF
-  default      = "${data.coder_workspace.me.owner}"
-  type         = "string"
-  mutable      = true
-}
-
 resource "coder_agent" "main" {
   arch                   = data.coder_provisioner.me.arch
   os                     = "linux"
@@ -90,11 +64,11 @@ resource "coder_agent" "main" {
   # You can remove this block if you'd prefer to configure Git manually or using
   # dotfiles. (see docs/dotfiles.md)
   env = {
-    DOTFILES_URI        = "${data.coder_parameter.dotfiles_uri.value}"
-    GIT_AUTHOR_NAME     = "${data.coder_parameter.git_user_name.value}"
-    GIT_COMMITTER_NAME  = "${data.coder_parameter.git_user_name.value}"
-    GIT_AUTHOR_EMAIL    = "${data.coder_parameter.git_user_email.value}"
-    GIT_COMMITTER_EMAIL = "${data.coder_parameter.git_user_email.value}"
+    DOTFILES_URI        = data.coder_parameter.dotfiles_uri.value != "" ? data.coder_parameter.dotfiles_uri.value : null
+    GIT_AUTHOR_NAME     = "${data.coder_workspace.me.owner}"
+    GIT_COMMITTER_NAME  = "${data.coder_workspace.me.owner}"
+    GIT_AUTHOR_EMAIL    = "${data.coder_workspace.me.owner_email}"
+    GIT_COMMITTER_EMAIL = "${data.coder_workspace.me.owner_email}"
   }
 }
 

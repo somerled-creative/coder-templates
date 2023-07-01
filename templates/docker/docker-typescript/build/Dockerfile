@@ -1,41 +1,19 @@
-FROM debian:bullseye
+# [Choice] Node.js version: 18, 16, 14, 18-bullseye, 16-bullseye, 14-bullseye, 18-buster, 16-buster, 14-buster
+ARG VARIANT=18-bullseye
+FROM mcr.microsoft.com/vscode/devcontainers/typescript-node:${VARIANT}
 
-SHELL ["/bin/bash", "-c"]
+# [Optional] Uncomment this section to install additional OS packages.
+# RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+#     && apt-get -y install --no-install-recommends <your-package-list-here>
 
-# Install baseline packages
-RUN apt-get update && \
-    DEBIAN_FRONTEND="noninteractive" apt-get install --yes \
-      bash \
-      build-essential \
-      curl \
-      git \
-      htop \
-      locales \
-      man-db \
-      rsync \
-      software-properties-common \
-      sudo \
-      systemd \
-      systemd-sysv \
-      unzip \
-      vim \
-      wget \
-      zsh
+# [Optional] Uncomment if you want to install an additional version of node using nvm
+# ARG EXTRA_NODE_VERSION=10
+# RUN su node -c "source /usr/local/share/nvm/nvm.sh && nvm install ${EXTRA_NODE_VERSION}"
 
-# Set the locale
-RUN sed -i "/en_US.UTF-8/s/^# //g" /etc/locale.gen && locale-gen
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
+# [Optional] Uncomment if you want to install more global node packages
+# RUN su node -c "npm install -g <your-package-list -here>"
 
-ARG USERNAME=coder
-RUN useradd ${USERNAME} \
-      --create-home \
-      --shell=/usr/bin/zsh \
-      --uid=1000 \
-      --user-group \
-    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >>/etc/sudoers.d/${USERNAME} \
-    && chmod 0440 /etc/sudoers.d/${USERNAME}
+ARG USER=node
 
-USER ${USERNAME}
-WORKDIR /home/${USERNAME}
+USER ${USER}
+WORKDIR /home/${USER}

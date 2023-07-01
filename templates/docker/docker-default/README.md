@@ -1,5 +1,5 @@
 ---
-name: Develop in Docker
+name: Docker Default
 description: Run workspaces on a Docker host
 tags: [local, docker]
 icon: /icon/docker.png
