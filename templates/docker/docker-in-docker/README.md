@@ -1,10 +1,12 @@
 ---
-name: Develop in a Docker container on a Docker host and be able to use `docker build` and `docker run` and `docker compose`
-description: The goal is to enable a Docker host within a a Docker container
+name: Docker in Docker
+description: Develop in a Docker container on a Docker host with `docker build` and `docker run` and `docker compose` available.
 tags: [cloud, kubernetes]
 ---
 
 # Docker host template for a workspace in a Docker container
+
+The goal of this workspace template is to enable a Docker host within a a Docker container.
 
 ### Apps included
 1. A web-based terminal

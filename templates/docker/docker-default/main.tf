@@ -37,6 +37,32 @@ data "coder_parameter" "dotfiles_uri" {
   mutable      = true
 }
 
+data "coder_parameter" "git_user_email" {
+  name         = "git_user_email"
+  display_name = "Git User Email"
+  description  = <<-EOF
+  The email address used for as `user.email` git config (optional).
+
+  Defaults to the coder user email address.
+  EOF
+  default      = "${data.coder_workspace.me.owner_email}"
+  type         = "string"
+  mutable      = true
+}
+
+data "coder_parameter" "git_user_name" {
+  name         = "git_user_name"
+  display_name = "Git User Name"
+  description  = <<-EOF
+  The email address used for as `user.name` git config (optional).
+
+  Defaults to the coder user name.
+  EOF
+  default      = "${data.coder_workspace.me.owner}"
+  type         = "string"
+  mutable      = true
+}
+
 resource "coder_agent" "main" {
   arch                   = data.coder_provisioner.me.arch
   os                     = "linux"
