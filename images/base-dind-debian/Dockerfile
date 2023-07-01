@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM debian:bullseye
 
 SHELL ["/bin/bash", "-c"]
 
@@ -39,5 +39,8 @@ RUN apt-get update && \
 # Enables Docker starting with systemd
 RUN systemctl enable docker
 
-# Make typing unicode characters in the terminal work.
+# Set the locale
+RUN sed -i "/en_US.UTF-8/s/^# //g" /etc/locale.gen && locale-gen
 ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8

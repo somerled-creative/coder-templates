@@ -24,6 +24,19 @@ provider "docker" {
 data "coder_workspace" "me" {
 }
 
+data "coder_parameter" "dotfiles_uri" {
+  name         = "dotfiles_uri"
+  display_name = "dotfiles URI"
+  description  = <<-EOF
+  Dotfiles repo URI (optional)
+
+  see https://dotfiles.github.io
+  EOF
+  default      = ""
+  type         = "string"
+  mutable      = true
+}
+
 resource "coder_agent" "main" {
   arch                   = data.coder_provisioner.me.arch
   os                     = "linux"
@@ -32,8 +45,18 @@ resource "coder_agent" "main" {
     set -e
 
     # install and start code-server
-    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.11.0
-    /tmp/code-server/bin/code-server --auth none --port 13337 >/tmp/code-server.log 2>&1 &
+    curl -fsSL https://code-server.dev/install.sh | sh
+    code-server --auth none --port 13337 &
+
+    # install OMZSH
+    if [ ! -d "/home/${local.username}/.oh-my-zsh" ]; then
+      curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh
+    fi
+
+    if [ -n "$DOTFILES_URI" ]; then
+      echo "Installing dotfiles from $DOTFILES_URI"
+      coder dotfiles -y "$DOTFILES_URI"
+    fi
   EOT
 
   # These environment variables allow you to make Git commits right away after creating a
@@ -41,6 +64,7 @@ resource "coder_agent" "main" {
   # You can remove this block if you'd prefer to configure Git manually or using
   # dotfiles. (see docs/dotfiles.md)
   env = {
+    DOTFILES_URI        = data.coder_parameter.dotfiles_uri.value != "" ? data.coder_parameter.dotfiles_uri.value : null
     GIT_AUTHOR_NAME     = "${data.coder_workspace.me.owner}"
     GIT_COMMITTER_NAME  = "${data.coder_workspace.me.owner}"
     GIT_AUTHOR_EMAIL    = "${data.coder_workspace.me.owner_email}"
@@ -50,22 +74,22 @@ resource "coder_agent" "main" {
 
 resource "coder_app" "code-server" {
   agent_id     = coder_agent.main.id
-  slug         = "code-server"
   display_name = "code-server"
-  url          = "http://localhost:13337/?folder=/home/${local.username}"
   icon         = "/icon/code.svg"
-  subdomain    = false
   share        = "owner"
+  slug         = "code-server"
+  subdomain    = false
+  url          = "http://localhost:13337/?folder=/home/${local.username}"
 
   healthcheck {
-    url       = "http://localhost:13337/healthz"
     interval  = 5
     threshold = 6
+    url       = "http://localhost:13337/healthz"
   }
 }
 
 resource "docker_volume" "home_volume" {
-  name = "coder-${data.coder_workspace.me.id}-home"
+  name = "vol-${data.coder_workspace.me.id}-home"
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
     ignore_changes = all
@@ -92,11 +116,11 @@ resource "docker_volume" "home_volume" {
 }
 
 resource "docker_image" "main" {
-  name = "coder-${data.coder_workspace.me.id}"
+  name = "img-coder-${data.coder_workspace.me.id}"
   build {
     context = "./build"
     build_args = {
-      USER = local.username
+      USERNAME = local.username
     }
   }
   triggers = {
@@ -105,19 +129,16 @@ resource "docker_image" "main" {
 }
 
 resource "docker_container" "workspace" {
-  count = data.coder_workspace.me.start_count
-  image = docker_image.main.name
-  # Uses lower() to avoid Docker restriction on container names.
-  name = "coder-${data.coder_workspace.me.owner}-${lower(data.coder_workspace.me.name)}"
-  # Hostname makes the shell more user friendly: coder@my-workspace:~$
+  command  = ["sh", "-c", coder_agent.main.init_script]
+  count    = data.coder_workspace.me.start_count
   hostname = data.coder_workspace.me.name
-  # Use the docker gateway if the access URL is 127.0.0.1
-  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
-  env        = ["CODER_AGENT_TOKEN=${coder_agent.main.token}"]
-  host {
-    host = "host.docker.internal"
-    ip   = "host-gateway"
-  }
+  image    = docker_image.main.name
+  name     = "work-${data.coder_workspace.me.id}"
+
+  env = [
+    "CODER_AGENT_TOKEN=${coder_agent.main.token}"
+  ]
+
   volumes {
     container_path = "/home/${local.username}"
     volume_name    = docker_volume.home_volume.name
