@@ -25,16 +25,45 @@ data "coder_workspace" "me" {
 }
 
 data "coder_parameter" "dotfiles_uri" {
-  name         = "dotfiles_uri"
+  default      = ""
   display_name = "dotfiles URI"
+  name         = "dotfiles_uri"
+  type         = "string"
+  mutable      = true
+
   description  = <<-EOF
   Dotfiles repo URI (optional)
 
   see https://dotfiles.github.io
   EOF
-  default      = ""
+}
+
+data "coder_parameter" "git_user_email" {
+  default      = "${data.coder_workspace.me.owner_email}"
+  display_name = "Git User Email"
+  name         = "git_user_email"
   type         = "string"
   mutable      = true
+
+  description  = <<-EOF
+  The email address used for as `user.email` git config (optional).
+
+  Defaults to the coder user email address.
+  EOF
+}
+
+data "coder_parameter" "git_user_name" {
+  default      = "${data.coder_workspace.me.owner}"
+  display_name = "Git User Name"
+  name         = "git_user_name"
+  type         = "string"
+  mutable      = true
+
+  description  = <<-EOF
+  The email address used for as `user.name` git config (optional).
+
+  Defaults to the coder user name.
+  EOF
 }
 
 resource "coder_agent" "main" {
@@ -64,11 +93,11 @@ resource "coder_agent" "main" {
   # You can remove this block if you'd prefer to configure Git manually or using
   # dotfiles. (see docs/dotfiles.md)
   env = {
-    DOTFILES_URI        = data.coder_parameter.dotfiles_uri.value != "" ? data.coder_parameter.dotfiles_uri.value : null
-    GIT_AUTHOR_NAME     = "${data.coder_workspace.me.owner}"
-    GIT_COMMITTER_NAME  = "${data.coder_workspace.me.owner}"
-    GIT_AUTHOR_EMAIL    = "${data.coder_workspace.me.owner_email}"
-    GIT_COMMITTER_EMAIL = "${data.coder_workspace.me.owner_email}"
+    DOTFILES_URI        = "${data.coder_parameter.dotfiles_uri.value}"
+    GIT_AUTHOR_NAME     = "${data.coder_parameter.git_user_name.value}"
+    GIT_COMMITTER_NAME  = "${data.coder_parameter.git_user_name.value}"
+    GIT_AUTHOR_EMAIL    = "${data.coder_parameter.git_user_email.value}"
+    GIT_COMMITTER_EMAIL = "${data.coder_parameter.git_user_email.value}"
   }
 }
 
