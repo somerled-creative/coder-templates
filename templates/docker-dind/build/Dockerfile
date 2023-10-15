@@ -1,4 +1,4 @@
-FROM thewidgetsmith/coder-dind-debian:bullseye
+FROM thewidgetsmith/coder-dind-ubuntu:jammy
 
 # Add a user
 ARG USERNAME=coder
