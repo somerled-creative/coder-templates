@@ -16,8 +16,7 @@ COPY docker.list /etc/apt/sources.list.d/docker.list
 RUN chmod a+r /etc/apt/keyrings/docker.asc
 
 # Install baseline packages
-RUN apt-get update && \
-    DEBIAN_FRONTEND="noninteractive" apt-get install --yes \
+RUN apt-get update && apt-get install --yes \
       bash \
       build-essential \
       containerd.io \
@@ -40,8 +39,6 @@ RUN apt-get update && \
       vim \
       wget \
       zsh && \
-    add-apt-repository ppa:git-core/ppa && \
-    DEBIAN_FRONTEND="noninteractive" apt-get install --yes git && \
     rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
 
 # Enables Docker starting with systemd
