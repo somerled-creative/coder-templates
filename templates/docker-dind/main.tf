@@ -10,20 +10,17 @@ terraform {
 }
 
 locals {
-  username = data.coder_workspace.me.owner
+  username = data.coder_workspace.me.name
 }
 
-data "coder_provisioner" "me" {
-}
+provider "docker" {}
 
-provider "docker" {
-}
-
-data "coder_workspace" "me" {
-}
+data "coder_workspace" "me" {}
+data "coder_workspace_owner" "me" {}
+data "coder_provisioner" "me" {}
 
 data "coder_parameter" "git_user_email" {
-  default      = "${data.coder_workspace.me.owner_email}"
+  default      = "${data.coder_workspace.me.email}"
   display_name = "Git User Email"
   name         = "git_user_email"
   type         = "string"
@@ -37,7 +34,7 @@ data "coder_parameter" "git_user_email" {
 }
 
 data "coder_parameter" "git_user_name" {
-  default      = "${data.coder_workspace.me.owner}"
+  default      = "${data.coder_workspace.me.name}"
   display_name = "Git User Name"
   name         = "git_user_name"
   type         = "string"
@@ -170,11 +167,11 @@ resource "docker_volume" "home_volume" {
   # Add labels in Docker to keep track of orphan resources.
   labels {
     label = "coder.owner"
-    value = data.coder_workspace.me.owner
+    value = data.coder_workspace_owner.me.name
   }
   labels {
     label = "coder.owner_id"
-    value = data.coder_workspace.me.owner_id
+    value = data.coder_workspace_owner.me.id
   }
   labels {
     label = "coder.workspace_id"
@@ -215,7 +212,7 @@ resource "docker_container" "workspace" {
   count        = data.coder_workspace.me.start_count
   hostname     = data.coder_workspace.me.name
   image        = docker_image.main.name
-  name         = "work-${data.coder_workspace.me.id}"
+  name         = "work-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   network_mode = "host"
 
   env = [
@@ -232,11 +229,11 @@ resource "docker_container" "workspace" {
   # Add labels in Docker to keep track of orphan resources.
   labels {
     label = "coder.owner"
-    value = data.coder_workspace.me.owner
+    value = data.coder_workspace_owner.me.name
   }
   labels {
     label = "coder.owner_id"
-    value = data.coder_workspace.me.owner_id
+    value = data.coder_workspace_owner.me.id
   }
   labels {
     label = "coder.workspace_id"
