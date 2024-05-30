@@ -11,15 +11,16 @@ RUN apt-get update && \
     gnupg && \
     install -m 0755 -d /etc/apt/keyrings
 
-COPY docker.gpg /etc/apt/keyrings/docker.gpg
+COPY docker.asc /etc/apt/keyrings/docker.asc
 COPY docker.list /etc/apt/sources.list.d/docker.list
-RUN chmod a+r /etc/apt/keyrings/docker.gpg
+RUN chmod a+r /etc/apt/keyrings/docker.asc
 
 # Install baseline packages
 RUN apt-get update && \
     DEBIAN_FRONTEND="noninteractive" apt-get install --yes \
       bash \
       build-essential \
+      containerd.io \
       docker-buildx-plugin \
       docker-ce \
       docker-ce-cli \
