@@ -20,7 +20,7 @@ data "coder_workspace_owner" "me" {}
 data "coder_provisioner" "me" {}
 
 data "coder_parameter" "git_user_email" {
-  default      = "${data.coder_workspace.me.email}"
+  #default      = "${data.coder_workspace.me.email}"
   display_name = "Git User Email"
   name         = "git_user_email"
   type         = "string"
